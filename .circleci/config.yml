@@ -127,4 +127,4 @@ workflows:
             - review
           filters:
             branches:
-              only: master
+              only: main
