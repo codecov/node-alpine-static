@@ -1,0 +1,21 @@
+{
+  "name": "node-alpine-static",
+  "version": "v12.16.1",
+  "description": "Builds a fully static copy of NodeJS from source to be used by codecov/uploader",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codecov/node-alpine-static.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/codecov/node-alpine-static/issues"
+  },
+  "homepage": "https://github.com/codecov/node-alpine-static#readme"
+}

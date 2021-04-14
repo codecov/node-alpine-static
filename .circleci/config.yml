@@ -1,0 +1,130 @@
+# Javascript Node CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-javascript/ for more details
+#
+version: 2.1
+
+orbs:
+  win: circleci/windows@2.2.0
+
+jobs:
+  build-node-alpine:
+    docker:
+      # specify the version you desire here
+      - image: alpine:3.12.0
+
+      # Specify service dependencies here if necessary
+      # CircleCI maintains a library of pre-built images
+      # documented at https://circleci.com/docs/2.0/circleci-images/
+      # - image: circleci/mongo:3.4.4
+
+    working_directory: ~/repo
+
+    steps:
+      - run:
+          name: Install dependencies for building a static copy of NodeJS
+          command: |
+            apk update
+            apk add git python3 openssh g++ make openssl linux-headers python2 npm
+      - checkout
+      - attach_workspace:
+         # Must be absolute path or relative path from working_directory
+          at: .
+      - run:
+          name: Clone nodejs repo
+          command: |
+            git clone https://github.com/nodejs/node.git 
+      - run:
+          name: Checkout v12.16.1 tag and apply patches
+          command: |
+            git fetch --all --tags
+            git checkout tags/v12.16.1 -b build
+            git apply ../patches/node.v12.16.1.cpp.patch
+          working_directory: node
+
+      - run:
+          name: Configure NodeJS build for static
+          command: ./configure --fully-static
+          working_directory: node
+
+      - run:
+          name: Build static nodejs binary
+          command: make -j4
+          working_directory: node
+
+      - run:
+          name: Confirm that alpine node binary is static
+          command: |
+            apk add file
+            file out/Release/node
+          working_directory: node
+
+      - run:
+          name: Create pkg-cache directory and copy static NodeJS binary
+          command: |
+            mkdir -p ~/.pkg-cache/v2.6
+            cp out/Release/node ../node-alpine-x64
+          working_directory: node
+
+      # Persist the specified paths (workspace/echo-output) into the workspace for use in downstream job.
+      - persist_to_workspace:
+          # Must be an absolute path, or relative path from working_directory. This is a directory on the container which is
+          # taken to be the root directory of the workspace.
+          root: .
+          # Must be relative path from root
+          paths:
+            - node-alpine-x64
+
+  review:
+    docker:
+      - image: circleci/node:10.16.3
+    steps:
+      - attach_workspace:
+          at: .
+      - store_artifacts:
+          path: node-alpine-x64
+
+# TODO: add test runs for each binary outside of a git project
+
+  deploy:
+    docker:
+      - image: circleci/node:10.16.3
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install GHR
+          command: >
+            wget
+            https://github.com/tcnksm/ghr/releases/download/v0.5.4/ghr_v0.5.4_linux_amd64.zip
+
+            unzip ghr_v0.5.4_linux_amd64.zip
+      - run:
+          name: Make binaries executable
+          command: |
+            chmod +x node-alpine-x64
+      - run:
+          name: Package
+          command: >
+            RELEASE_TAG=v$(cat package.json | jq --raw-output
+            .version)_$CIRCLE_BUILD_NUM
+
+            echo $RELEASE_TAG
+
+            ./ghr -u codecov -r uploader --replace $RELEASE_TAG out
+
+workflows:
+  version: 2
+
+  "Build and Test":
+    jobs:
+      - build-node-alpine
+      - review:
+          requires:
+            - build-node-alpine
+      - deploy:
+          requires:
+            - review
+          filters:
+            branches:
+              only: master
