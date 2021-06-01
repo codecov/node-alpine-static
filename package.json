@@ -1,6 +1,6 @@
 {
   "name": "node-alpine-static",
-  "version": "v12.16.1",
+  "version": "v16.2.0.",
   "description": "Builds a fully static copy of NodeJS from source to be used by codecov/uploader",
   "private": true,
   "main": "index.js",
